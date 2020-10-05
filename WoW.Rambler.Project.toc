@@ -1,0 +1,6 @@
+## Interface: 80300
+## Title: WoW.Rambler.Project
+## Notes: WoW Rambler Project Addon
+## Version: 1.0
+
+main.lua
