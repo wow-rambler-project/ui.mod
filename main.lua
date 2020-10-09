@@ -3,12 +3,15 @@
 -- mailto: wow.rambler.project@gmail.com
 --
 
+local hideFrame = CreateFrame("Frame")
+hideFrame:Hide()
+
 local mainFrame, events = CreateFrame("Frame", nil, UIParent), {}
 
 mainFrame.fontSize = 20
 mainFrame.timeDelta = 0
 
-mainFrame:SetPoint("TOP", 0, -mainFrame.fontSize/2)
+mainFrame:SetPoint("TOP", 0, -0.6180339887 * mainFrame.fontSize)
 
 local tR, tG, tB = 246/255, 227/255, 186/255
 
@@ -20,7 +23,7 @@ local function UpdateZoneInfo()
 		mainFrame.zoneText:SetText(zone)
 	else
 		mainFrame.zoneText:SetFormattedText("%s - %s", zone, subZone)
-	end	
+	end
 end
 
 local mapCoordinatesCache = {}
@@ -60,19 +63,54 @@ local function GetPlayerZonePosition()
 	end
 end
 
-local hideFrame = CreateFrame("Frame")
-hideFrame:Hide()
+local function SetupMinimap()
+	for _, b in ipairs({Minimap:GetChildren()}) do
+		pcall(b.Hide, b)
+	end
 
-if _G["MiniMapMailFrame"] then
-	_G["MiniMapMailFrame"]:SetParent(hideFrame)
+	MiniMapMailFrame:SetParent(hideFrame)
+	GameTimeFrame:SetParent(hideFrame)
+
+	Minimap:SetMaskTexture("Interface\\BUTTONS\\WHITE8X8")
+	Minimap:SetWidth(166 + 13)
+	Minimap:SetHeight(166)
+	Minimap:SetPoint("TOPRIGHT", -13, -13)
+
+	MinimapBorderTop:SetParent(hideFrame)
+	MinimapZoneTextButton:SetParent(hideFrame)
 end
 
-if _G["GameTimeFrame"] then
-	_G["GameTimeFrame"]:SetParent(hideFrame)
+local function SetupBattlefieldMap()
+	if not BattlefieldMapFrame then
+		return
+	end
+
+	BattlefieldMapFrame.BorderFrame:SetAlpha(0)
+	BattlefieldMapFrame.groupMembersDataProvider:SetUnitPinSize("player", 18)
+
+	BattlefieldMapFrame:ClearAllPoints()
+	BattlefieldMapFrame:SetPoint("BOTTOMRIGHT", 2, -3)
+	BattlefieldMapFrame:SetAlpha(1)
 end
 
-ZoneTextFrame:SetParent(hideFrame)
-SubZoneTextFrame:SetParent(hideFrame)
+local function SetupUnitFrames()
+	local actionBarWidth = 160
+	local playerFrameX = (1920 / 2) - (actionBarWidth / 2) - PlayerFrame:GetWidth()
+	local targetFrameX = (1920 / 2) + (actionBarWidth / 2)
+
+	PlayerFrame:ClearAllPoints()
+	PlayerFrame:SetPoint("TOPLEFT", playerFrameX, -880)
+
+	TargetFrame:ClearAllPoints()
+	TargetFrame:SetPoint("TOPLEFT", targetFrameX, -880)
+end
+
+local function SetupRemainingUI()
+	GossipFrame:SetScale(1.25)
+	QuestFrame:SetScale(1.25)
+	ZoneTextFrame:SetParent(hideFrame)
+	SubZoneTextFrame:SetParent(hideFrame)
+end
 
 mainFrame.maxPositionWidthText = mainFrame:CreateFontString()
 mainFrame.positionXText = mainFrame:CreateFontString(nil, "OVERLAY")
@@ -101,24 +139,9 @@ mainFrame.zoneText:SetTextColor(tR, tG, tB, 1)
 
 mainFrame:SetHeight(mainFrame.maxPositionWidthText:GetStringHeight())
 
--- local function onMouseDown(self, buttonName)	
--- 	if (buttonName == "LeftButton") then
--- 		mainFrame:StartMoving()
--- 	end
--- end
-
--- local function onMouseUp(self, buttonName)
--- 	mainFrame:StopMovingOrSizing()
--- end
-
--- mainFrame:RegisterForDrag("LeftButton")
--- mainFrame:SetClampedToScreen(true)
--- mainFrame:SetMovable(true)
--- mainFrame:EnableMouse(true)
-
 local function OnUpdate(self, timeDelta)
 	self.timeDelta = self.timeDelta + timeDelta
-	if self.timeDelta < .05 then 
+	if self.timeDelta < 0.1 then 
 		return
 	end 
 
@@ -129,28 +152,15 @@ local function OnUpdate(self, timeDelta)
 	self.positionXText:SetFormattedText("%.1f", x * 100)
 	self.positionYText:SetFormattedText("%.1f", y * 100)
 
-	self:SetWidth((self.maxPositionWidth * 2) + self.zoneText:GetStringWidth())
-
 	self.timeDelta = 0
 end
 
-function events:PLAYER_ENTERING_WORLD(...)
+local function OnZoneChange()
 	UpdateZoneInfo()
+	mainFrame:SetWidth((mainFrame.maxPositionWidth * 2) + mainFrame.zoneText:GetStringWidth())
 end
 
-function events:ZONE_CHANGED(...)
-	UpdateZoneInfo()
-end
-
-function events:ZONE_CHANGED_NEW_AREA(...)
-	UpdateZoneInfo()
-end
-
-function events:ZONE_CHANGED_INDOORS(...)
-	UpdateZoneInfo()
-end
-
-function events:QUEST_DETAIL(...)
+local function OnQuest()
 	local questIdText = QuestNpcNameFrame.questIdText
 
 	if not questIdText then
@@ -164,7 +174,35 @@ function events:QUEST_DETAIL(...)
 		questIdText:SetTextColor(1,1,1,.4)
 	end
 
-	questIdText:SetFormattedText("This quest's number is %d.", GetQuestID())
+	questIdText:SetFormattedText("This is quest number %d.", GetQuestID())
+end
+
+function events:PLAYER_ENTERING_WORLD(...)
+	OnZoneChange()
+	SetupMinimap()
+	SetupBattlefieldMap()
+	SetupUnitFrames()
+	SetupRemainingUI()
+end
+
+function events:ZONE_CHANGED(...)
+	OnZoneChange()
+end
+
+function events:ZONE_CHANGED_NEW_AREA(...)
+	OnZoneChange()
+end
+
+function events:ZONE_CHANGED_INDOORS(...)
+	OnZoneChange()
+end
+
+function events:QUEST_PROGRESS(...)
+	OnQuest()
+end
+
+function events:QUEST_DETAIL(...)
+	OnQuest()
 end
 
 mainFrame:SetScript("OnEvent", function(self, event, ...)
@@ -176,5 +214,3 @@ for k, v in pairs(events) do
 end
 
 mainFrame:SetScript("OnUpdate", OnUpdate)
---mainFrame:SetScript("OnMouseDown", onMouseDown)
---mainFrame:SetScript("OnMouseUp", onMouseUp)
