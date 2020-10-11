@@ -13,7 +13,8 @@ mainFrame.timeDelta = 0
 
 mainFrame:SetPoint("TOP", 0, -0.6180339887 * mainFrame.fontSize)
 
-local tR, tG, tB = 246/255, 227/255, 186/255
+--local tR, tG, tB = 246/255, 227/255, 186/255 -- Beige.
+local tR, tG, tB = 225/255, 183/255, 1/255 -- Yellow.
 
 local function UpdateZoneInfo()
 	local zone = GetRealZoneText()
@@ -72,9 +73,10 @@ local function SetupMinimap()
 	GameTimeFrame:SetParent(hideFrame)
 
 	Minimap:SetMaskTexture("Interface\\BUTTONS\\WHITE8X8")
-	Minimap:SetWidth(166 + 13)
-	Minimap:SetHeight(166)
-	Minimap:SetPoint("TOPRIGHT", -13, -13)
+	Minimap:SetWidth(252)
+	Minimap:SetHeight(168)
+	Minimap:ClearAllPoints()
+	Minimap:SetPoint("BOTTOMLEFT", UIParent, 0, 0)
 
 	MinimapBorderTop:SetParent(hideFrame)
 	MinimapZoneTextButton:SetParent(hideFrame)
@@ -90,26 +92,43 @@ local function SetupBattlefieldMap()
 
 	BattlefieldMapFrame:ClearAllPoints()
 	BattlefieldMapFrame:SetPoint("BOTTOMRIGHT", 2, -3)
-	BattlefieldMapFrame:SetAlpha(1)
+	--BattlefieldMapFrame:SetAlpha(1)
+
+	--BattlefieldMapFrame:SetWidth(250)
+	BattlefieldMapFrame:SetHeight(169)
 end
 
 local function SetupUnitFrames()
-	local actionBarWidth = 160
+	local actionBarWidth = 168
 	local playerFrameX = (1920 / 2) - (actionBarWidth / 2) - PlayerFrame:GetWidth()
 	local targetFrameX = (1920 / 2) + (actionBarWidth / 2)
 
 	PlayerFrame:ClearAllPoints()
-	PlayerFrame:SetPoint("TOPLEFT", playerFrameX, -880)
+	PlayerFrame:SetPoint("TOPLEFT", playerFrameX, -870)
 
 	TargetFrame:ClearAllPoints()
-	TargetFrame:SetPoint("TOPLEFT", targetFrameX, -880)
+	TargetFrame:SetPoint("TOPLEFT", targetFrameX - 1, -870)
 end
+
+local function Dummy() end
 
 local function SetupRemainingUI()
 	GossipFrame:SetScale(1.25)
 	QuestFrame:SetScale(1.25)
 	ZoneTextFrame:SetParent(hideFrame)
 	SubZoneTextFrame:SetParent(hideFrame)
+
+	-- Get rid of the ugly chat edit box.
+	ChatFrame1EditBoxLeft:Hide()
+	ChatFrame1EditBoxMid:Hide()
+	ChatFrame1EditBoxRight:Hide()
+
+	-- Move quest tracker. Requires hooking to disallow original positioning.
+    ObjectiveTrackerFrame:ClearAllPoints()
+    ObjectiveTrackerFrame:SetPoint("TOPRIGHT", UIParent, "BOTTOMRIGHT", -252, 168)
+    ObjectiveTrackerFrame.ClearAllPoints = Dummy
+    ObjectiveTrackerFrame.SetPoint       = Dummy
+	ObjectiveTrackerFrame:SetHeight(168)
 end
 
 mainFrame.maxPositionWidthText = mainFrame:CreateFontString()
