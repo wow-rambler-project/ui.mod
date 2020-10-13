@@ -6,52 +6,93 @@
 local hideFrame = CreateFrame("Frame")
 hideFrame:Hide()
 
-local mainFrame, events = CreateFrame("Frame", nil, UIParent), {}
+local mainFrame = CreateFrame("Frame", nil, UIParent)
+mainFrame.events = {}
 
-mainFrame.fontSize = 20
-mainFrame.timeDelta = 0
+function mainFrame:SetupEvents()
+	self:SetScript("OnEvent", function(self, event, ...)
+		self.events[event](self, ...)
+	end)
 
-mainFrame:SetPoint("TOP", 0, -0.6180339887 * mainFrame.fontSize)
+	for k, v in pairs(self.events) do
+		self:RegisterEvent(k)
+	end
+	
+	self.timeDelta = 0
+	self:SetScript("OnUpdate", self.OnUpdate)
+end
 
---local tR, tG, tB = 246/255, 227/255, 186/255 -- Beige.
-local tR, tG, tB = 225/255, 183/255, 1/255 -- Yellow.
+function mainFrame:SetupFont(font, fontObject, xOffset)
+	font:SetFontObject(fontObject)
+	font:SetPoint("TOPLEFT", xOffset, 0)
+	font:SetJustifyH("LEFT")
+end
 
-local function UpdateZoneInfo()
+function mainFrame:Setup()
+	self:SetParent(MinimapCluster)
+	self:SetPoint("TOPRIGHT", -10, -3)
+
+	local fontObject = ObjectiveTrackerBlocksFrame.QuestHeader.Text:GetFontObject()
+
+	self.positionXText = self:CreateFontString(nil, "OVERLAY")
+	self.positionYText = self:CreateFontString(nil, "OVERLAY")
+	self.zoneText = self:CreateFontString(nil, "OVERLAY")
+
+	self:SetupFont(self.positionXText, fontObject, 0)
+
+	-- Measure max width of a single coordinate.
+	self.positionXText:SetText("100.0")
+	self.maxPositionWidth = self.positionXText:GetStringWidth()
+
+	self:SetupFont(self.positionYText, fontObject, self.maxPositionWidth)
+	self:SetupFont(self.zoneText, fontObject, self.maxPositionWidth * 2)
+
+	self:SetHeight(self.positionXText:GetLineHeight())
+
+	self.mapCoordinatesCache = {}
+	self.playerMapPosition = CreateVector2D(0,0)
+	self.zeroVector = CreateVector2D(0, 0)
+	self.oneVector = CreateVector2D(1, 1)
+
+	-- Get rid of the ugly chat edit box.
+	ChatFrame1EditBoxLeft:Hide()
+	ChatFrame1EditBoxMid:Hide()
+	ChatFrame1EditBoxRight:Hide()
+
+	self:SetupEvents()
+end
+
+function mainFrame:UpdateZoneInfo()
 	local zone = GetRealZoneText()
 	local subZone = GetSubZoneText()
 
 	if (subZone == "") then
-		mainFrame.zoneText:SetText(zone)
+		self.zoneText:SetText(zone)
 	else
-		mainFrame.zoneText:SetFormattedText("%s - %s", zone, subZone)
+		self.zoneText:SetFormattedText("%s - %s", zone, subZone)
 	end
 end
 
-local mapCoordinatesCache = {}
-local playerMapPosition = CreateVector2D(0,0)
-local zeroVector = CreateVector2D(0, 0)
-local oneVector = CreateVector2D(1, 1)
-
-local function GetPlayerMapPosition(mapId)
-	local worldPosition = mapCoordinatesCache[mapId]
+function mainFrame:GetPlayerMapPosition(mapId)
+	local worldPosition = self.mapCoordinatesCache[mapId]
 
 	if not worldPosition then
 		worldPosition = {}
 		local _
-		_, worldPosition[1] = C_Map.GetWorldPosFromMapPos(mapId, zeroVector)
-		_, worldPosition[2] = C_Map.GetWorldPosFromMapPos(mapId, oneVector)
+		_, worldPosition[1] = C_Map.GetWorldPosFromMapPos(mapId, self.zeroVector)
+		_, worldPosition[2] = C_Map.GetWorldPosFromMapPos(mapId, self.oneVector)
 
 		worldPosition[2]:Subtract(worldPosition[1])
-		mapCoordinatesCache[mapId] = worldPosition
+		self.mapCoordinatesCache[mapId] = worldPosition
 	end
 
-	playerMapPosition.x, playerMapPosition.y = UnitPosition('Player')
-	playerMapPosition:Subtract(worldPosition[1])
+	self.playerMapPosition.x, self.playerMapPosition.y = UnitPosition('Player')
+	self.playerMapPosition:Subtract(worldPosition[1])
 
-	return (1 / worldPosition[2].y) * playerMapPosition.y, (1 / worldPosition[2].x) * playerMapPosition.x
+	return (1 / worldPosition[2].y) * self.playerMapPosition.y, (1 / worldPosition[2].x) * self.playerMapPosition.x
 end
 
-local function GetPlayerZonePosition()
+function mainFrame:GetPlayerZonePosition()
 	local mapID = C_Map.GetBestMapForUnit("player")
 	if mapID then
 		-- This approach uses more memory.
@@ -60,111 +101,62 @@ local function GetPlayerZonePosition()
 		--	return mapPosObject:GetXY()
 		-- end 
 
-		return GetPlayerMapPosition(mapID)
+		return self:GetPlayerMapPosition(mapID)
 	end
 end
 
-local function SetupMinimap()
+function mainFrame:SetupMinimap()
 	for _, b in ipairs({Minimap:GetChildren()}) do
+		if b ~= MinimapBackdrop then
+			pcall(b.Hide, b)
+		end
+	end
+
+	for _, b in ipairs({MinimapBackdrop:GetChildren()}) do
 		pcall(b.Hide, b)
 	end
 
 	MiniMapMailFrame:SetParent(hideFrame)
-	GameTimeFrame:SetParent(hideFrame)
-
-	Minimap:SetMaskTexture("Interface\\BUTTONS\\WHITE8X8")
-	Minimap:SetWidth(252)
-	Minimap:SetHeight(168)
-	Minimap:ClearAllPoints()
-	Minimap:SetPoint("BOTTOMLEFT", UIParent, 0, 0)
-
 	MinimapBorderTop:SetParent(hideFrame)
 	MinimapZoneTextButton:SetParent(hideFrame)
+	ZoneTextFrame:SetParent(hideFrame)
+	SubZoneTextFrame:SetParent(hideFrame)
 end
 
-local function SetupBattlefieldMap()
+function mainFrame:SetupBattlefieldMap()
 	if not BattlefieldMapFrame then
 		return
 	end
 
-	BattlefieldMapFrame.BorderFrame:SetAlpha(0)
+	BattlefieldMapFrame:SetResizable(true)
+	BattlefieldMapFrame.BorderFrame.CloseButton:Hide()
+	BattlefieldMapFrame.BorderFrame.CloseButtonBorder:Hide()
 	BattlefieldMapFrame.groupMembersDataProvider:SetUnitPinSize("player", 18)
 
-	BattlefieldMapFrame:ClearAllPoints()
-	BattlefieldMapFrame:SetPoint("BOTTOMRIGHT", 2, -3)
-	--BattlefieldMapFrame:SetAlpha(1)
+	local newHeight = 154
+	local newWidth = newHeight * BattlefieldMapFrame:GetWidth() / BattlefieldMapFrame:GetHeight()
 
-	--BattlefieldMapFrame:SetWidth(250)
-	BattlefieldMapFrame:SetHeight(169)
+	BattlefieldMapFrame:SetSize(newWidth, newHeight);
+	BattlefieldMapFrame:OnFrameSizeChanged()
+
+	local backgroundFix = CreateFrame("Frame", nil, UIParent)
+	backgroundFix:SetPoint("BOTTOMRIGHT", 0, 0)
+	backgroundFix:SetSize(newWidth + 3, newHeight + 4)
+	
+	local background = backgroundFix:CreateTexture()
+	background:SetTexture("Interface/BUTTONS/WHITE8X8")
+	background:SetColorTexture(0, 0, 0, 1)
+	background:SetAllPoints(backgroundFix)
 end
 
-local function SetupUnitFrames()
-	local actionBarWidth = 168
-	local playerFrameX = (1920 / 2) - (actionBarWidth / 2) - PlayerFrame:GetWidth()
-	local targetFrameX = (1920 / 2) + (actionBarWidth / 2)
-
-	PlayerFrame:ClearAllPoints()
-	PlayerFrame:SetPoint("TOPLEFT", playerFrameX, -870)
-
-	TargetFrame:ClearAllPoints()
-	TargetFrame:SetPoint("TOPLEFT", targetFrameX - 1, -870)
-end
-
-local function Dummy() end
-
-local function SetupRemainingUI()
-	GossipFrame:SetScale(1.25)
-	QuestFrame:SetScale(1.25)
-	ZoneTextFrame:SetParent(hideFrame)
-	SubZoneTextFrame:SetParent(hideFrame)
-
-	-- Get rid of the ugly chat edit box.
-	ChatFrame1EditBoxLeft:Hide()
-	ChatFrame1EditBoxMid:Hide()
-	ChatFrame1EditBoxRight:Hide()
-
-	-- Move quest tracker. Requires hooking to disallow original positioning.
-    ObjectiveTrackerFrame:ClearAllPoints()
-    ObjectiveTrackerFrame:SetPoint("TOPRIGHT", UIParent, "BOTTOMRIGHT", -252, 168)
-    ObjectiveTrackerFrame.ClearAllPoints = Dummy
-    ObjectiveTrackerFrame.SetPoint       = Dummy
-	ObjectiveTrackerFrame:SetHeight(168)
-end
-
-mainFrame.maxPositionWidthText = mainFrame:CreateFontString()
-mainFrame.positionXText = mainFrame:CreateFontString(nil, "OVERLAY")
-mainFrame.positionYText = mainFrame:CreateFontString(nil, "OVERLAY")
-mainFrame.zoneText = mainFrame:CreateFontString(nil, "OVERLAY")
-
-mainFrame.maxPositionWidthText:SetFont("Fonts\\MORPHEUS.TTF", mainFrame.fontSize, "OUTLINE")
-mainFrame.positionXText:SetFont("Fonts\\MORPHEUS.TTF", mainFrame.fontSize, "OUTLINE")
-mainFrame.positionYText:SetFont("Fonts\\MORPHEUS.TTF", mainFrame.fontSize, "OUTLINE")
-mainFrame.zoneText:SetFont("Fonts\\MORPHEUS.TTF", mainFrame.fontSize, "OUTLINE")
-
-mainFrame.maxPositionWidthText:SetText("100.0")
-mainFrame.maxPositionWidth = mainFrame.maxPositionWidthText:GetStringWidth()
-
-mainFrame.positionXText:SetPoint("TOPLEFT", 0, 0)
-mainFrame.positionYText:SetPoint("TOPLEFT", mainFrame.maxPositionWidth, 0)
-mainFrame.zoneText:SetPoint("TOPLEFT", mainFrame.maxPositionWidth * 2, 0)
-
-mainFrame.positionXText:SetJustifyH("LEFT")
-mainFrame.positionYText:SetJustifyH("LEFT")
-mainFrame.zoneText:SetJustifyH("LEFT")
-
-mainFrame.positionXText:SetTextColor(tR, tG, tB, 1)
-mainFrame.positionYText:SetTextColor(tR, tG, tB, 1)
-mainFrame.zoneText:SetTextColor(tR, tG, tB, 1)
-
-mainFrame:SetHeight(mainFrame.maxPositionWidthText:GetStringHeight())
-
-local function OnUpdate(self, timeDelta)
+function mainFrame:OnUpdate(timeDelta)
 	self.timeDelta = self.timeDelta + timeDelta
+
 	if self.timeDelta < 0.1 then 
 		return
 	end 
 
-	local x, y = GetPlayerZonePosition()
+	local x, y = self:GetPlayerZonePosition()
 	x = x or 0
 	y = y or 0
 
@@ -174,12 +166,16 @@ local function OnUpdate(self, timeDelta)
 	self.timeDelta = 0
 end
 
-local function OnZoneChange()
-	UpdateZoneInfo()
-	mainFrame:SetWidth((mainFrame.maxPositionWidth * 2) + mainFrame.zoneText:GetStringWidth())
+function mainFrame:OnZoneChange()
+	self:UpdateZoneInfo()
+	self:SetWidth(self.maxPositionWidth * 2 + self.zoneText:GetStringWidth())
 end
 
 local function OnQuest()
+	if not QuestNpcNameFrame then
+		return
+	end
+
 	local questIdText = QuestNpcNameFrame.questIdText
 
 	if not questIdText then
@@ -190,46 +186,36 @@ local function OnQuest()
 
 		questIdText:SetFont(name, size, style)
 		questIdText:SetPoint("TOP", 0, -size * 2.5)
-		questIdText:SetTextColor(1,1,1,.4)
+		questIdText:SetTextColor(1, 1,1, .4)
 	end
 
-	questIdText:SetFormattedText("This is quest number %d.", GetQuestID())
+	questIdText:SetFormattedText("Questa è la missione numero %d", GetQuestID())
 end
 
-function events:PLAYER_ENTERING_WORLD(...)
-	OnZoneChange()
-	SetupMinimap()
-	SetupBattlefieldMap()
-	SetupUnitFrames()
-	SetupRemainingUI()
+function mainFrame.events:PLAYER_ENTERING_WORLD(...)
+	self:OnZoneChange()
+	self:SetupMinimap()
+	self:SetupBattlefieldMap()
 end
 
-function events:ZONE_CHANGED(...)
-	OnZoneChange()
+function mainFrame.events:ZONE_CHANGED(...)
+	self:OnZoneChange()
 end
 
-function events:ZONE_CHANGED_NEW_AREA(...)
-	OnZoneChange()
+function mainFrame.events:ZONE_CHANGED_NEW_AREA(...)
+	self:OnZoneChange()
 end
 
-function events:ZONE_CHANGED_INDOORS(...)
-	OnZoneChange()
+function mainFrame.events:ZONE_CHANGED_INDOORS(...)
+	self:OnZoneChange()
 end
 
-function events:QUEST_PROGRESS(...)
+function mainFrame.events:QUEST_PROGRESS(...)
 	OnQuest()
 end
 
-function events:QUEST_DETAIL(...)
+function mainFrame.events:QUEST_DETAIL(...)
 	OnQuest()
 end
 
-mainFrame:SetScript("OnEvent", function(self, event, ...)
-	events[event](self, ...)
-end)
-
-for k, v in pairs(events) do
-	mainFrame:RegisterEvent(k)
-end
-
-mainFrame:SetScript("OnUpdate", OnUpdate)
+mainFrame:Setup()
