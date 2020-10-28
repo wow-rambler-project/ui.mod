@@ -32,13 +32,13 @@ function mainFrame:SetupEvents()
 	self:SetScript("OnUpdate", self.OnUpdate)
 end
 
-function mainFrame:SetupFontInternal(font, fontObject, xOffset)
-	font:SetFontObject(fontObject)
-	font:SetPoint("TOPLEFT", xOffset, 0)
-	font:SetJustifyH("LEFT")
-end
-
 function mainFrame:SetupCoordinatesFrame()
+	local function SetupFont(font, fontObject, xOffset)
+		font:SetFontObject(fontObject)
+		font:SetPoint("TOPLEFT", xOffset, 0)
+		font:SetJustifyH("LEFT")
+	end
+
 	self:SetParent(MinimapCluster)
 	self:SetPoint("TOPRIGHT", -10, -3)
 
@@ -48,14 +48,14 @@ function mainFrame:SetupCoordinatesFrame()
 	self.positionYText = self:CreateFontString(nil, "OVERLAY")
 	self.zoneText = self:CreateFontString(nil, "OVERLAY")
 
-	self:SetupFontInternal(self.positionXText, fontObject, 0)
+	SetupFont(self.positionXText, fontObject, 0)
 
 	-- Measure max width of a single coordinate.
 	self.positionXText:SetText("100.0")
 	self.maxPositionWidth = self.positionXText:GetStringWidth()
 
-	self:SetupFontInternal(self.positionYText, fontObject, self.maxPositionWidth)
-	self:SetupFontInternal(self.zoneText, fontObject, self.maxPositionWidth * 2)
+	SetupFont(self.positionYText, fontObject, self.maxPositionWidth)
+	SetupFont(self.zoneText, fontObject, self.maxPositionWidth * 2)
 
 	self:SetHeight(self.positionXText:GetLineHeight())
 
@@ -86,8 +86,11 @@ function mainFrame:SetupChatFrame()
 		_G["ChatFrame"..i.."EditBoxNewcomerHint"]:SetParent(hideFrame)
 	end
 
+	-- Chat needs to loaded first. This timer gives enough time.
 	C_Timer.After(0, function()
-		FCF_Tab_OnClick(ChatFrame3Tab)
+		if ChatFrame3Tab:IsVisible() then
+			FCF_Tab_OnClick(ChatFrame3Tab)
+		end
 	end)
 end
 
@@ -310,14 +313,60 @@ QuestFrameCompleteQuestButton:SetScript("OnClick", function(self, mouseButton)
 	BlockQuestFrames(8)
 end)
 
+local function ArrayDifference(minuend, subtrahend)
+	local tempArray = {}
+
+	for k, v in pairs(minuend) do
+		tempArray[v] = true
+	end
+
+	for k, v in pairs(subtrahend) do
+		tempArray[v] = nil
+	end
+
+	local difference = {}
+	local n = 0
+
+	for k, v in pairs(minuend) do
+		if tempArray[v] then
+			n = n + 1
+			difference[n] = v
+		end
+	end
+
+	return difference
+end
+
+function mainFrame:RegisterTurnedInQuest(questId)
+	local serverQuests = C_QuestLog.GetAllCompletedQuestIDs()
+	local diff = ArrayDifference(serverQuests, WoWRamblerProjectQuestsDone)
+
+	WoWRamblerProjectQuestsDone = serverQuests
+	table.insert(WoWRamblerProjectQuestsDone, questId)
+
+	WoWRamblerProjectQuestMap[questId] = {}
+	for k, v in pairs(diff) do
+		table.insert(WoWRamblerProjectQuestMap[questId], v)
+	end
+end
+
 function mainFrame.events:PLAYER_ENTERING_WORLD(...)
 	self.isInInstace = IsInInstance()
 	self:OnZoneChange()
 	self:SetupMinimap()
 	self:SetupBattlefieldMap()
+
+	if not WoWRamblerProjectQuestMap then
+		WoWRamblerProjectQuestMap = {}
+	end
+
+	if not WoWRamblerProjectQuestsDone then
+		WoWRamblerProjectQuestsDone = {}
+	end
 end
 
 function mainFrame.events:ZONE_CHANGED(...)
+	BattlefieldMapFrame:OnEvent("ZONE_CHANGED_NEW_AREA")
 	self:OnZoneChange()
 end
 
@@ -326,11 +375,12 @@ function mainFrame.events:ZONE_CHANGED_NEW_AREA(...)
 end
 
 function mainFrame.events:ZONE_CHANGED_INDOORS(...)
+	BattlefieldMapFrame:OnEvent("ZONE_CHANGED_NEW_AREA")
 	self:OnZoneChange()
 end
 
 function mainFrame.events:QUEST_ACCEPTED(questId)
-	self:OnQuest("QUEST_ACCEPTED")
+	-- self:OnQuest("QUEST_ACCEPTED")
 
 	-- A naive "workaround" for starting auto-quest-accept zones.
 	if IsShiftKeyDown() then
@@ -345,17 +395,47 @@ function mainFrame.events:QUEST_ACCEPTED(questId)
 		return
 	end
 
+	ChatFrame3TabText:SetText(questId)
+
 	ShowMap(5)
 end
 
-function mainFrame.events:QUEST_TURNED_IN(...)
-	self:OnQuest("QUEST_TURNED_IN")
+function mainFrame.events:QUEST_TURNED_IN(questId)
+	-- self:OnQuest("QUEST_TURNED_IN")
 	ShowMap(8)
+
+	self:RegisterTurnedInQuest(questId)
+	ChatFrame3TabText:SetText("")
 end
 
--- function mainFrame.events:QUEST_POI_UPDATE(...)
--- 	self:OnQuest("QUEST_POI_UPDATE")
--- end
+function mainFrame.events:QUEST_REMOVED(questId)
+	-- self:OnQuest("QUEST_REMOVED")
+	ChatFrame3TabText:SetText("")
+end
+
+function mainFrame.events:QUEST_DETAIL(...)
+	self:OnQuest("QUEST_DETAIL")
+end
+
+function mainFrame.events:QUEST_PROGRESS(...)
+	self:OnQuest("QUEST_PROGRESS")
+end
+
+function mainFrame.events:QUEST_FINISHED(...)
+	self:OnQuest("QUEST_FINISHED")
+end
+
+function mainFrame.events:QUEST_COMPLETE(...)
+	self:OnQuest("QUEST_COMPLETE")
+end
+
+function mainFrame.events:QUEST_GREETING(...)
+	self:OnQuest("QUEST_GREETING")
+end
+
+function mainFrame.events:QUEST_ACCEPT_CONFIRM(...)
+	self:OnQuest("QUEST_ACCEPT_CONFIRM")
+end
 
 mainFrame:SetupCoordinatesFrame()
 mainFrame:SetupChatFrame()
