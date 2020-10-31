@@ -32,6 +32,18 @@ function mainFrame:SetupEvents()
 	self:SetScript("OnUpdate", self.OnUpdate)
 end
 
+function mainFrame:SetupSettings()
+	WoWRamblerProjectQuestLog = WoWRamblerProjectQuestLog or {}
+	WoWRamblerProjectQuestMap = WoWRamblerProjectQuestMap or {}
+	WoWRamblerProjectQuestsDone = WoWRamblerProjectQuestsDone or {}
+
+	self.version, self.build = GetBuildInfo()
+	self.questTurnInDelay = 8
+	self.questAcceptDelay = 5
+	self.defaultChatTabText = " "
+	self.chatFontSize = 12
+end
+
 function mainFrame:SetupCoordinatesFrame()
 	self.positionX = nil
 	self.positionY = nil
@@ -82,8 +94,8 @@ function mainFrame:SetupChatFrame()
 		-- And adjust font a little.
 		local chatFrame = _G["ChatFrame"..i.."EditBox"]
 		local name, size, style = chatFrame:GetFont()
-		chatFrame:SetFont(name, 12, style)
-		_G["ChatFrame"..i.."EditBoxHeader"]:SetFont(name, 12, style)
+		chatFrame:SetFont(name, self.chatFontSize, style)
+		_G["ChatFrame"..i.."EditBoxHeader"]:SetFont(name, self.chatFontSize, style)
 
 		-- Remove newcomers tip.
 		_G["ChatFrame"..i.."EditBoxNewcomerHint"]:SetParent(hideFrame)
@@ -95,7 +107,6 @@ function mainFrame:SetupChatFrame()
 		parent:ClearAllPoints()
 		parent:SetPoint('BOTTOMLEFT', UIParent, 0, 0)
 		parent:SetSize(320, 156)
-
 		local chatFrame = _G["ChatFrame3"];
 		local chatTab = _G["ChatFrame3Tab"];
 
@@ -103,6 +114,7 @@ function mainFrame:SetupChatFrame()
 		chatTab:Show();
 		SetChatWindowShown(3, true);
 		FCF_DockFrame(chatFrame, (#FCFDock_GetChatFrames(GENERAL_CHAT_DOCK)), true);
+		FCF_SetWindowName(chatFrame, self.defaultChatTabText);
 
 		if ChatFrame3Tab:IsVisible() then
 			FCF_Tab_OnClick(ChatFrame3Tab)
@@ -275,7 +287,7 @@ function mainFrame:OnZoneChange()
 	self:SetupBattlefieldMap()
 end
 
-function mainFrame:OnQuest(from)
+function mainFrame:OnQuest()
 	if not QuestNpcNameFrame then
 		return
 	end
@@ -300,8 +312,6 @@ function mainFrame:OnQuest(from)
 	else
 		questIdText:SetText("")
 	end
-
-	--print(from)
 end
 
 local onHideAddress = WorldMapFrame:GetScript("OnHide")
@@ -345,17 +355,8 @@ local function BlockQuestFrames(seconds)
 	end)
 end
 
-local Original_QuestFrameAcceptButton_OnClick = QuestFrameAcceptButton:GetScript("OnClick")
-QuestFrameAcceptButton:SetScript("OnClick", function(self, mouseButton)
-	Original_QuestFrameAcceptButton_OnClick(self, mouseButton)
-	BlockQuestFrames(5)
-end)
-
-local Original_QuestFrameCompleteQuestButton_OnClick = QuestFrameCompleteQuestButton:GetScript("OnClick")
-QuestFrameCompleteQuestButton:SetScript("OnClick", function(self, mouseButton)
-	Original_QuestFrameCompleteQuestButton_OnClick(self, mouseButton)
-	BlockQuestFrames(8)
-end)
+QuestFrameAcceptButton:HookScript("OnClick", function() BlockQuestFrames(mainFrame.questAcceptDelay) end)
+QuestFrameCompleteQuestButton:HookScript("OnClick", function() BlockQuestFrames(mainFrame.questTurnInDelay) end)
 
 local function ArrayDifference(minuend, subtrahend)
 	local tempArray = {}
@@ -403,15 +404,10 @@ function mainFrame:RegisterTurnedInQuest(questId)
 end
 
 function mainFrame.events:PLAYER_ENTERING_WORLD(...)
-	self.version, self.build = GetBuildInfo()
 	self.isInInstace = IsInInstance()
 	self:OnZoneChange()
 	self:SetupMinimap()
 	self:SetupBattlefieldMap()
-
-	WoWRamblerProjectQuestLog = WoWRamblerProjectQuestLog or {}
-	WoWRamblerProjectQuestMap = WoWRamblerProjectQuestMap or {}
-	WoWRamblerProjectQuestsDone = WoWRamblerProjectQuestsDone or {}
 
 	if self.isInInstace then
 		self.positionXText:SetText("")
@@ -420,6 +416,9 @@ function mainFrame.events:PLAYER_ENTERING_WORLD(...)
 end
 
 function mainFrame.events:ZONE_CHANGED(...)
+	-- Blizzard's UI has a problem with updating the battlefield map
+	-- in places like Zuldazar - The Great Seal. Going outside does
+	-- not change the map. Let's force it to do so.
 	BattlefieldMapFrame:OnEvent("ZONE_CHANGED_NEW_AREA")
 	self:OnZoneChange()
 end
@@ -434,8 +433,6 @@ function mainFrame.events:ZONE_CHANGED_INDOORS(...)
 end
 
 function mainFrame.events:QUEST_ACCEPTED(questId)
-	-- self:OnQuest("QUEST_ACCEPTED")
-
 	-- A naive "workaround" for starting auto-quest-accept zones.
 	if IsShiftKeyDown() then
 		return
@@ -449,47 +446,45 @@ function mainFrame.events:QUEST_ACCEPTED(questId)
 		return
 	end
 
+	ShowMap(self.questAcceptDelay)
 	ChatFrame3TabText:SetText(questId)
-	ShowMap(5)
 end
 
 function mainFrame.events:QUEST_TURNED_IN(questId)
-	-- self:OnQuest("QUEST_TURNED_IN")
-	ShowMap(8)
-
+	ShowMap(self.questTurnInDelay)
 	self:RegisterTurnedInQuest(questId)
-	ChatFrame3TabText:SetText("")
+	ChatFrame3TabText:SetText(self.defaultChatTabText)
 end
 
 function mainFrame.events:QUEST_REMOVED(questId)
-	-- self:OnQuest("QUEST_REMOVED")
-	ChatFrame3TabText:SetText("")
+	ChatFrame3TabText:SetText(self.defaultChatTabText)
 end
 
 function mainFrame.events:QUEST_DETAIL(...)
-	self:OnQuest("QUEST_DETAIL")
+	self:OnQuest()
 end
 
 function mainFrame.events:QUEST_PROGRESS(...)
-	self:OnQuest("QUEST_PROGRESS")
+	self:OnQuest()
 end
 
 function mainFrame.events:QUEST_FINISHED(...)
-	self:OnQuest("QUEST_FINISHED")
+	self:OnQuest()
 end
 
 function mainFrame.events:QUEST_COMPLETE(...)
-	self:OnQuest("QUEST_COMPLETE")
+	self:OnQuest()
 end
 
 function mainFrame.events:QUEST_GREETING(...)
-	self:OnQuest("QUEST_GREETING")
+	self:OnQuest()
 end
 
 function mainFrame.events:QUEST_ACCEPT_CONFIRM(...)
-	self:OnQuest("QUEST_ACCEPT_CONFIRM")
+	self:OnQuest()
 end
 
+mainFrame:SetupSettings()
 mainFrame:SetupCoordinatesFrame()
 mainFrame:SetupChatFrame()
 mainFrame:SetupEvents()
