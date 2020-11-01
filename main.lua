@@ -1,7 +1,13 @@
--- WoW Rambler Project - Addon
+-- WoW Rambler Project - UI Mod Addon
 --
 -- mailto: wow.rambler.project@gmail.com
 --
+
+local AddonName = ...
+
+local mainFrame = CreateFrame("Frame", nil, UIParent)
+mainFrame.events = {}
+mainFrame:Hide()
 
 SetCVar("showBattlefieldMinimap", "1")
 SetCVar("autoLootDefault", "1")
@@ -14,13 +20,8 @@ SetCVarBitfield("closedInfoFrames", LE_FRAME_TUTORIAL_GARRISON_ZONE_ABILITY, tru
 SetCVarBitfield("closedInfoFrames", LE_FRAME_TUTORIAL_GARRISON_LANDING, true)
 SetCVarBitfield("closedInfoFrames", SpellBookFrame_GetTutorialEnum(), true)
 
-local AddonName = ...
-
-local hideFrame = CreateFrame("Frame")
-hideFrame:Hide()
-
-local mainFrame = CreateFrame("Frame", nil, UIParent)
-mainFrame.events = {}
+ZoneTextFrame:SetParent(mainFrame)
+SubZoneTextFrame:SetParent(mainFrame)
 
 function mainFrame:SetupEvents()
 	self:SetScript("OnEvent", function(self, event, ...)
@@ -30,57 +31,13 @@ function mainFrame:SetupEvents()
 	for k, v in pairs(self.events) do
 		self:RegisterEvent(k)
 	end
-
-	self.timeDelta = 0
-	self:SetScript("OnUpdate", self.OnUpdate)
 end
 
 function mainFrame:SetupSettings()
-	self.version, self.build = GetBuildInfo()
 	self.questTurnInDelay = 8
 	self.questAcceptDelay = 5
 	self.defaultChatTabText = " "
 	self.chatFontSize = 12
-end
-
-function mainFrame:SetupCoordinatesFrame()
-	self.positionX = nil
-	self.positionY = nil
-
-	local function SetupFont(font, fontObject, xOffset)
-		font:SetFontObject(fontObject)
-		font:SetPoint("TOPLEFT", xOffset, 0)
-		font:SetJustifyH("LEFT")
-	end
-
-	self:SetPoint("TOPRIGHT", -10, -3)
-
-	local fontObject = ObjectiveTrackerBlocksFrame.QuestHeader.Text:GetFontObject()
-
-	self.positionXText = self:CreateFontString(nil, "OVERLAY")
-	self.positionYText = self:CreateFontString(nil, "OVERLAY")
-	self.zoneText = self:CreateFontString(nil, "OVERLAY")
-
-	SetupFont(self.positionXText, fontObject, 0)
-
-	-- Measure max width of a single coordinate.
-	self.positionXText:SetText("100.0")
-	self.maxPositionWidth = self.positionXText:GetStringWidth()
-	self.positionXText:SetText("")
-
-	SetupFont(self.positionYText, fontObject, self.maxPositionWidth)
-	SetupFont(self.zoneText, fontObject, self.maxPositionWidth * 2)
-
-	self:SetHeight(self.positionXText:GetLineHeight())
-
-	self.mapCoordinatesCache = {}
-	self.playerMapPosition = CreateVector2D(0,0)
-	self.zeroVector = CreateVector2D(0, 0)
-	self.oneVector = CreateVector2D(1, 1)
-
-	-- Hide default frames.
-	ZoneTextFrame:SetParent(hideFrame)
-	SubZoneTextFrame:SetParent(hideFrame)
 end
 
 function mainFrame:SetupChatFrame()
@@ -97,7 +54,7 @@ function mainFrame:SetupChatFrame()
 		_G["ChatFrame"..i.."EditBoxHeader"]:SetFont(name, self.chatFontSize, style)
 
 		-- Remove newcomers tip.
-		_G["ChatFrame"..i.."EditBoxNewcomerHint"]:SetParent(hideFrame)
+		_G["ChatFrame"..i.."EditBoxNewcomerHint"]:SetParent(mainFrame)
 	end
 
 	-- Chat needs to be loaded first. This timer gives enough time.
@@ -121,62 +78,6 @@ function mainFrame:SetupChatFrame()
 	end)
 end
 
-function mainFrame:UpdateZoneInfo()
-	local zone = GetRealZoneText()
-	local subZone = GetSubZoneText()
-
-	if (subZone == "") then
-		self.zoneText:SetText(zone)
-	else
-		self.zoneText:SetFormattedText("%s - %s", zone, subZone)
-	end
-end
-
-function mainFrame:GetPlayerMapPosition(mapId)
-	local worldPosition = self.mapCoordinatesCache[mapId]
-
-	if not worldPosition then
-		worldPosition = {}
-		local _
-		_, worldPosition[1] = C_Map.GetWorldPosFromMapPos(mapId, self.zeroVector)
-		_, worldPosition[2] = C_Map.GetWorldPosFromMapPos(mapId, self.oneVector)
-
-		-- Exile's Reach - North Sea: returns nil
-		if not worldPosition[1] or not worldPosition[2] then
-			return 0, 0
-		end
-
-		worldPosition[2]:Subtract(worldPosition[1])
-		self.mapCoordinatesCache[mapId] = worldPosition
-	end
-
-	self.playerMapPosition.x, self.playerMapPosition.y = UnitPosition('player')
-	self.playerMapPosition:Subtract(worldPosition[1])
-
-	return (1 / worldPosition[2].y) * self.playerMapPosition.y, (1 / worldPosition[2].x) * self.playerMapPosition.x
-end
-
-function mainFrame:GetPlayerZonePosition()
-	local mapId = C_Map.GetBestMapForUnit("player")
-
-	if mapId then
-		local x, y = self:GetPlayerMapPosition(mapId)
-		
-		-- This approach uses more memory.
-		-- local mapPosObject = C_Map.GetPlayerMapPosition(mapId, "player")
-		-- if mapPosObject then 
-		-- 	x, y = mapPosObject:GetXY()
-		-- end
-
-		-- x = x or 0
-		-- y = y or 0
-
-		return math.floor(x * 1000), math.floor(y * 1000)
-	end
-
-	return 0, 0
-end
-
 function mainFrame:SetupMinimap()
 	for _, b in ipairs({Minimap:GetChildren()}) do
 		if b ~= MinimapBackdrop then
@@ -188,9 +89,9 @@ function mainFrame:SetupMinimap()
 		pcall(b.Hide, b)
 	end
 
-	MiniMapMailFrame:SetParent(hideFrame)
-	MinimapBorderTop:SetParent(hideFrame)
-	MinimapZoneTextButton:SetParent(hideFrame)
+	MiniMapMailFrame:SetParent(mainFrame)
+	MinimapBorderTop:SetParent(mainFrame)
+	MinimapZoneTextButton:SetParent(mainFrame)
 end
 
 function mainFrame:SetupBattlefieldMap()
@@ -242,48 +143,6 @@ function mainFrame:SetupBattlefieldMap()
 		tooltip:SetOwner(parent, "ANCHOR_NONE");
 		tooltip:SetPoint("BOTTOMRIGHT", TooltipAnchor, "BOTTOMRIGHT", 0, 175)
 	end)
-end
-
-function mainFrame:OnUpdate(timeDelta)
-	self.timeDelta = self.timeDelta + timeDelta
-
-	if self.timeDelta < (1 / 60) then
-		return
-	end
-	
-	self.timeDelta = 0
-
-	if self.isInInstace then
-		return
-	end
-
-	local x, y = self:GetPlayerZonePosition()
-
-	if x ~= self.positionX then
-		if x ~= 0 then
-			self.positionXText:SetFormattedText("%.1f", x / 10)
-		else
-			self.positionXText:SetText("")
-		end
-		
-		self.positionX = x
-	end
-
-	if y ~= self.positionY then
-		if y ~= 0 then
-			self.positionYText:SetFormattedText("%.1f", y / 10)
-		else
-			self.positionYText:SetText("")
-		end
-
-		self.positionY = y
-	end
-end
-
-function mainFrame:OnZoneChange()
-	self:UpdateZoneInfo()
-	self:SetWidth(self.maxPositionWidth * 2 + self.zoneText:GetStringWidth())
-	self:SetupBattlefieldMap()
 end
 
 function mainFrame:OnQuest()
@@ -357,76 +216,10 @@ end
 QuestFrameAcceptButton:HookScript("OnClick", function() BlockQuestFrames(mainFrame.questAcceptDelay) end)
 QuestFrameCompleteQuestButton:HookScript("OnClick", function() BlockQuestFrames(mainFrame.questTurnInDelay) end)
 
-local function ArrayDifference(minuend, subtrahend)
-	local tempArray = {}
-
-	for k, v in pairs(minuend) do
-		tempArray[v] = true
-	end
-
-	for k, v in pairs(subtrahend) do
-		tempArray[v] = nil
-	end
-
-	local difference = {}
-	local n = 0
-
-	for k, v in pairs(minuend) do
-		if tempArray[v] then
-			n = n + 1
-			difference[n] = v
-		end
-	end
-
-	return difference
-end
-
-function mainFrame:RegisterTurnedInQuest(questId)
-	local serverQuests = C_QuestLog.GetAllCompletedQuestIDs()
-	local diff = ArrayDifference(serverQuests, WoWRamblerProjectQuestsDone)
-
-	if next(diff) ~= nil then
-		WoWRamblerProjectQuestMap[questId] = {}
-		for k, v in pairs(diff) do
-			-- Usually GetAllCompletedQuestIDs() does not return just completed quests. Usually...
-			if questId ~= v then
-				table.insert(WoWRamblerProjectQuestMap[questId], v)
-			end
-		end
-	end
-
-	WoWRamblerProjectQuestsDone = serverQuests
-	table.insert(WoWRamblerProjectQuestsDone, questId)
-	WoWRamblerProjectQuestLog[questId] = WoWRamblerProjectQuestLog[questId] or {}
-	local entry = WoWRamblerProjectQuestLog[questId]
-
-	local x, y, z, instanceId = UnitPosition('player')
-
-	table.insert(entry, GetServerTime())
-	table.insert(entry, string.format("%s @ %s (%s)", date(), self.version, self.build))
-	table.insert(entry, C_QuestLog.GetTitleForQuestID(questId))
-	table.insert(entry, string.format("%s %s %s", self.positionXText:GetText(), self.positionYText:GetText(), self.zoneText:GetText()))
-	table.insert(entry, {x, y, instanceId})
-end
-
-function mainFrame.events:ADDON_LOADED(addonName)
-	if addonName == AddonName then
-		WoWRamblerProjectQuestLog = WoWRamblerProjectQuestLog or {}
-		WoWRamblerProjectQuestMap = WoWRamblerProjectQuestMap or {}
-		WoWRamblerProjectQuestsDone = WoWRamblerProjectQuestsDone or {}
-	end
-end
-
 function mainFrame.events:PLAYER_ENTERING_WORLD(...)
-	self.isInInstace = IsInInstance()
-	self:OnZoneChange()
 	self:SetupMinimap()
+	self:SetupChatFrame()
 	self:SetupBattlefieldMap()
-
-	if self.isInInstace then
-		self.positionXText:SetText("")
-		self.positionYText:SetText("")
-	end
 end
 
 function mainFrame.events:ZONE_CHANGED(...)
@@ -434,16 +227,16 @@ function mainFrame.events:ZONE_CHANGED(...)
 	-- in places like Zuldazar - The Great Seal. Going outside does
 	-- not change the map. Let's force it to do so.
 	BattlefieldMapFrame:OnEvent("ZONE_CHANGED_NEW_AREA")
-	self:OnZoneChange()
+	self:SetupBattlefieldMap()
 end
 
 function mainFrame.events:ZONE_CHANGED_NEW_AREA(...)
-	self:OnZoneChange()
+	self:SetupBattlefieldMap()
 end
 
 function mainFrame.events:ZONE_CHANGED_INDOORS(...)
 	BattlefieldMapFrame:OnEvent("ZONE_CHANGED_NEW_AREA")
-	self:OnZoneChange()
+	self:SetupBattlefieldMap()
 end
 
 function mainFrame.events:QUEST_ACCEPTED(questId)
@@ -466,7 +259,6 @@ end
 
 function mainFrame.events:QUEST_TURNED_IN(questId)
 	ShowMap(self.questTurnInDelay)
-	self:RegisterTurnedInQuest(questId)
 	ChatFrame3TabText:SetText(self.defaultChatTabText)
 end
 
@@ -499,6 +291,4 @@ function mainFrame.events:QUEST_ACCEPT_CONFIRM(...)
 end
 
 mainFrame:SetupSettings()
-mainFrame:SetupCoordinatesFrame()
-mainFrame:SetupChatFrame()
 mainFrame:SetupEvents()
