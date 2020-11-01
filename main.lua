@@ -4,6 +4,7 @@
 --
 
 SetCVar("showBattlefieldMinimap", "1")
+SetCVar("autoLootDefault", "1")
 
 -- Tutorials... Meh.
 SetCVarBitfield("closedInfoFrames", LE_FRAME_TUTORIAL_WORLD_MAP_FRAME, true)
@@ -12,6 +13,8 @@ SetCVarBitfield("closedInfoFrames", LE_FRAME_TUTORIAL_BAG_SETTINGS, true)
 SetCVarBitfield("closedInfoFrames", LE_FRAME_TUTORIAL_GARRISON_ZONE_ABILITY, true)
 SetCVarBitfield("closedInfoFrames", LE_FRAME_TUTORIAL_GARRISON_LANDING, true)
 SetCVarBitfield("closedInfoFrames", SpellBookFrame_GetTutorialEnum(), true)
+
+local AddonName = ...
 
 local hideFrame = CreateFrame("Frame")
 hideFrame:Hide()
@@ -33,10 +36,6 @@ function mainFrame:SetupEvents()
 end
 
 function mainFrame:SetupSettings()
-	WoWRamblerProjectQuestLog = WoWRamblerProjectQuestLog or {}
-	WoWRamblerProjectQuestMap = WoWRamblerProjectQuestMap or {}
-	WoWRamblerProjectQuestsDone = WoWRamblerProjectQuestsDone or {}
-
 	self.version, self.build = GetBuildInfo()
 	self.questTurnInDelay = 8
 	self.questAcceptDelay = 5
@@ -106,7 +105,7 @@ function mainFrame:SetupChatFrame()
 		local parent = _G["ChatFrame1"]
 		parent:ClearAllPoints()
 		parent:SetPoint('BOTTOMLEFT', UIParent, 0, 0)
-		parent:SetSize(320, 156)
+		parent:SetSize(325, 156)
 		local chatFrame = _G["ChatFrame3"];
 		local chatTab = _G["ChatFrame3Tab"];
 
@@ -143,7 +142,7 @@ function mainFrame:GetPlayerMapPosition(mapId)
 		_, worldPosition[2] = C_Map.GetWorldPosFromMapPos(mapId, self.oneVector)
 
 		-- Exile's Reach - North Sea: returns nil
-		if (not worldPosition[1]) or (not worldPosition[2]) then
+		if not worldPosition[1] or not worldPosition[2] then
 			return 0, 0
 		end
 
@@ -151,20 +150,20 @@ function mainFrame:GetPlayerMapPosition(mapId)
 		self.mapCoordinatesCache[mapId] = worldPosition
 	end
 
-	self.playerMapPosition.x, self.playerMapPosition.y = UnitPosition('Player')
+	self.playerMapPosition.x, self.playerMapPosition.y = UnitPosition('player')
 	self.playerMapPosition:Subtract(worldPosition[1])
 
 	return (1 / worldPosition[2].y) * self.playerMapPosition.y, (1 / worldPosition[2].x) * self.playerMapPosition.x
 end
 
 function mainFrame:GetPlayerZonePosition()
-	local mapID = C_Map.GetBestMapForUnit("player")
+	local mapId = C_Map.GetBestMapForUnit("player")
 
-	if mapID then
-		local x, y = self:GetPlayerMapPosition(mapID)
+	if mapId then
+		local x, y = self:GetPlayerMapPosition(mapId)
 		
 		-- This approach uses more memory.
-		-- local mapPosObject = C_Map.GetPlayerMapPosition(mapID, "player")
+		-- local mapPosObject = C_Map.GetPlayerMapPosition(mapId, "player")
 		-- if mapPosObject then 
 		-- 	x, y = mapPosObject:GetXY()
 		-- end
@@ -389,7 +388,10 @@ function mainFrame:RegisterTurnedInQuest(questId)
 	if next(diff) ~= nil then
 		WoWRamblerProjectQuestMap[questId] = {}
 		for k, v in pairs(diff) do
-			table.insert(WoWRamblerProjectQuestMap[questId], v)
+			-- Usually GetAllCompletedQuestIDs() does not return just completed quests. Usually...
+			if questId ~= v then
+				table.insert(WoWRamblerProjectQuestMap[questId], v)
+			end
 		end
 	end
 
@@ -398,9 +400,21 @@ function mainFrame:RegisterTurnedInQuest(questId)
 	WoWRamblerProjectQuestLog[questId] = WoWRamblerProjectQuestLog[questId] or {}
 	local entry = WoWRamblerProjectQuestLog[questId]
 
+	local x, y, z, instanceId = UnitPosition('player')
+
 	table.insert(entry, GetServerTime())
 	table.insert(entry, string.format("%s @ %s (%s)", date(), self.version, self.build))
 	table.insert(entry, C_QuestLog.GetTitleForQuestID(questId))
+	table.insert(entry, string.format("%s %s %s", self.positionXText:GetText(), self.positionYText:GetText(), self.zoneText:GetText()))
+	table.insert(entry, {x, y, instanceId})
+end
+
+function mainFrame.events:ADDON_LOADED(addonName)
+	if addonName == AddonName then
+		WoWRamblerProjectQuestLog = WoWRamblerProjectQuestLog or {}
+		WoWRamblerProjectQuestMap = WoWRamblerProjectQuestMap or {}
+		WoWRamblerProjectQuestsDone = WoWRamblerProjectQuestsDone or {}
+	end
 end
 
 function mainFrame.events:PLAYER_ENTERING_WORLD(...)
