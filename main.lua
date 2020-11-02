@@ -13,12 +13,13 @@ SetCVar("showBattlefieldMinimap", "1")
 SetCVar("autoLootDefault", "1")
 
 -- Tutorials... Meh.
-SetCVarBitfield("closedInfoFrames", LE_FRAME_TUTORIAL_WORLD_MAP_FRAME, true)
-SetCVarBitfield("closedInfoFrames", LE_FRAME_TUTORIAL_CLEAN_UP_BAGS, true)
-SetCVarBitfield("closedInfoFrames", LE_FRAME_TUTORIAL_BAG_SETTINGS, true)
-SetCVarBitfield("closedInfoFrames", LE_FRAME_TUTORIAL_GARRISON_ZONE_ABILITY, true)
-SetCVarBitfield("closedInfoFrames", LE_FRAME_TUTORIAL_GARRISON_LANDING, true)
-SetCVarBitfield("closedInfoFrames", SpellBookFrame_GetTutorialEnum(), true)
+for i = 1, NUM_LE_FRAME_TUTORIALS do
+	C_CVar.SetCVarBitfield("closedInfoFrames", i, true)
+end
+
+for i = 1, NUM_LE_FRAME_TUTORIAL_ACCCOUNTS do
+	C_CVar.SetCVarBitfield("closedInfoFramesAccountWide", i, true)
+end
 
 ZoneTextFrame:SetParent(mainFrame)
 SubZoneTextFrame:SetParent(mainFrame)
@@ -37,45 +38,6 @@ function mainFrame:SetupSettings()
 	self.questTurnInDelay = 8
 	self.questAcceptDelay = 5
 	self.defaultChatTabText = " "
-	self.chatFontSize = 12
-end
-
-function mainFrame:SetupChatFrame()
-	for i = 1, NUM_CHAT_WINDOWS do
-		-- Get rid of the ugly chat edit box.
-		_G["ChatFrame"..i.."EditBoxLeft"]:Hide()
-		_G["ChatFrame"..i.."EditBoxMid"]:Hide()
-		_G["ChatFrame"..i.."EditBoxRight"]:Hide()
-
-		-- And adjust font a little.
-		local chatFrame = _G["ChatFrame"..i.."EditBox"]
-		local name, size, style = chatFrame:GetFont()
-		chatFrame:SetFont(name, self.chatFontSize, style)
-		_G["ChatFrame"..i.."EditBoxHeader"]:SetFont(name, self.chatFontSize, style)
-
-		-- Remove newcomers tip.
-		_G["ChatFrame"..i.."EditBoxNewcomerHint"]:SetParent(mainFrame)
-	end
-
-	-- Chat needs to be loaded first. This timer gives enough time.
-	C_Timer.After(0, function()
-		local parent = _G["ChatFrame1"]
-		parent:ClearAllPoints()
-		parent:SetPoint('BOTTOMLEFT', UIParent, 0, 0)
-		parent:SetSize(325, 156)
-		local chatFrame = _G["ChatFrame3"];
-		local chatTab = _G["ChatFrame3Tab"];
-
-		chatFrame:Show();
-		chatTab:Show();
-		SetChatWindowShown(3, true);
-		FCF_DockFrame(chatFrame, (#FCFDock_GetChatFrames(GENERAL_CHAT_DOCK)), true);
-		FCF_SetWindowName(chatFrame, self.defaultChatTabText);
-
-		if ChatFrame3Tab:IsVisible() then
-			FCF_Tab_OnClick(ChatFrame3Tab)
-		end
-	end)
 end
 
 function mainFrame:SetupMinimap()
@@ -94,6 +56,20 @@ function mainFrame:SetupMinimap()
 	MinimapZoneTextButton:SetParent(mainFrame)
 end
 
+function mainFrame:UpdateBattlefieldMap()
+	BattlefieldMapFrame.groupMembersDataProvider:SetUnitPinSize("player", 18)
+
+	-- This is ugly. I just don't get how this frame works.
+	local newHeight = 154
+	local newWidth = newHeight * BattlefieldMapFrame:GetWidth() / BattlefieldMapFrame:GetHeight() -- 231
+
+	BattlefieldMapFrame:SetSize(newWidth, newHeight);
+	BattlefieldMapTab:SetPoint("BOTTOMRIGHT", -106, 160)
+
+	BattlefieldMapOptions.opacity = 0
+	BattlefieldMapFrame:RefreshAlpha()
+end
+
 function mainFrame:SetupBattlefieldMap()
 	if not BattlefieldMapFrame then
 		return
@@ -101,25 +77,8 @@ function mainFrame:SetupBattlefieldMap()
 
 	BattlefieldMapFrame.BorderFrame.CloseButton:Hide()
 	BattlefieldMapFrame.BorderFrame.CloseButtonBorder:Hide()
-	BattlefieldMapFrame.groupMembersDataProvider:SetUnitPinSize("player", 18)
 
-	-- This is ugly. I just don't get how this frame works.
-	local newHeight = 154
-	local newWidth = 231 --newHeight * BattlefieldMapFrame:GetWidth() / BattlefieldMapFrame:GetHeight()
-
-	BattlefieldMapFrame:SetSize(newWidth, newHeight);
-	BattlefieldMapFrame:OnFrameSizeChanged()
-
-	BattlefieldMapTab:SetPoint("BOTTOMRIGHT", -106, 160)
-
-	BattlefieldMapOptions.opacity = 0
-	BattlefieldMapOptions.locked = false
-	BattlefieldMapFrame:RefreshAlpha()
-	BattlefieldMapFrame:SetMovable(true)
-	BattlefieldMapFrame:StartMoving()
-	BattlefieldMapFrame:StopMovingOrSizing()
-
-	BattlefieldMapFrame:OnEvent("ADDON_LOADED")
+	self:UpdateBattlefieldMap()
 
 	-- There is a bug that leaves 1px on top and 1px on one of the sides that is transparent.
 	-- Let's cover it.
@@ -134,7 +93,7 @@ function mainFrame:SetupBattlefieldMap()
 		})
 
 		BattlefieldMapFrame.backgroundFix:SetPoint("BOTTOMRIGHT", 0, 0)
-		BattlefieldMapFrame.backgroundFix:SetSize(newWidth + 3, newHeight + 4)
+		BattlefieldMapFrame.backgroundFix:SetSize(BattlefieldMapFrame:GetWidth() + 3, BattlefieldMapFrame:GetHeight() + 4)
 		BattlefieldMapFrame.backgroundFix:SetBackdropBorderColor(0, 0, 0, 1)
 	end
 
@@ -218,7 +177,6 @@ QuestFrameCompleteQuestButton:HookScript("OnClick", function() BlockQuestFrames(
 
 function mainFrame.events:PLAYER_ENTERING_WORLD(...)
 	self:SetupMinimap()
-	self:SetupChatFrame()
 	self:SetupBattlefieldMap()
 end
 
@@ -227,16 +185,16 @@ function mainFrame.events:ZONE_CHANGED(...)
 	-- in places like Zuldazar - The Great Seal. Going outside does
 	-- not change the map. Let's force it to do so.
 	BattlefieldMapFrame:OnEvent("ZONE_CHANGED_NEW_AREA")
-	self:SetupBattlefieldMap()
+	self:UpdateBattlefieldMap()
 end
 
 function mainFrame.events:ZONE_CHANGED_NEW_AREA(...)
-	self:SetupBattlefieldMap()
+	self:UpdateBattlefieldMap()
 end
 
 function mainFrame.events:ZONE_CHANGED_INDOORS(...)
 	BattlefieldMapFrame:OnEvent("ZONE_CHANGED_NEW_AREA")
-	self:SetupBattlefieldMap()
+	self:UpdateBattlefieldMap()
 end
 
 function mainFrame.events:QUEST_ACCEPTED(questId)
@@ -288,6 +246,36 @@ end
 
 function mainFrame.events:QUEST_ACCEPT_CONFIRM(...)
 	self:OnQuest()
+end
+
+function mainFrame.events:UPDATE_FLOATING_CHAT_WINDOWS(...)
+	local parent = _G["ChatFrame1"]
+	parent:ClearAllPoints()
+	parent:SetPoint('BOTTOMLEFT', UIParent, 0, 0)
+	parent:SetSize(325, 156)
+end
+
+function mainFrame.events:UPDATE_CHAT_WINDOWS(...)
+	for i = 1, NUM_CHAT_WINDOWS do
+		-- Get rid of the ugly chat edit box.
+		_G["ChatFrame"..i.."EditBoxLeft"]:Hide()
+		_G["ChatFrame"..i.."EditBoxMid"]:Hide()
+		_G["ChatFrame"..i.."EditBoxRight"]:Hide()
+
+		-- And adjust font a little.
+		-- local name, size, style = _G["ChatFrame"..i]:GetFont()
+		-- _G["ChatFrame"..i]:SetFont(name, self.chatFontSize, style)
+
+		-- Remove newcomers tip.
+		_G["ChatFrame"..i.."EditBoxNewcomerHint"]:SetParent(mainFrame)
+	end
+
+	FCF_DockFrame(ChatFrame3, (#FCFDock_GetChatFrames(GENERAL_CHAT_DOCK)), true);
+	FCF_SetWindowName(ChatFrame3, self.defaultChatTabText);
+
+	if ChatFrame3Tab:IsVisible() then
+		FCF_Tab_OnClick(ChatFrame3Tab)
+	end
 end
 
 mainFrame:SetupSettings()
