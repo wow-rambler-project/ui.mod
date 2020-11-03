@@ -36,10 +36,6 @@ function mainFrame:SetupEvents()
 	end
 end
 
-function mainFrame:SetupSettings()
-
-end
-
 function mainFrame:SetupMinimap()
 	for _, b in ipairs({Minimap:GetChildren()}) do
 		if b ~= MinimapBackdrop then
@@ -133,14 +129,12 @@ function mainFrame:OnQuest()
 	end
 end
 
-local onHideAddress = WorldMapFrame:GetScript("OnHide")
 local lockedWorldMap = false
-WorldMapFrame:SetScript("OnHide", function(self)
+
+WorldMapFrame:HookScript("OnHide", function()
 	if lockedWorldMap then
 		WorldMapFrame:OnEvent("WORLD_MAP_OPEN")
 	end
-
-	onHideAddress(WorldMapFrame)
 end)
 
 local function ShowMap(seconds)
@@ -174,8 +168,13 @@ local function BlockQuestFrames(seconds)
 	end)
 end
 
-QuestFrameAcceptButton:HookScript("OnClick", function() BlockQuestFrames(mainFrame.questAcceptDelay) end)
-QuestFrameCompleteQuestButton:HookScript("OnClick", function() BlockQuestFrames(mainFrame.questTurnInDelay) end)
+QuestFrameAcceptButton:HookScript("OnClick", function()
+	BlockQuestFrames(mainFrame.questAcceptDelay)
+end)
+
+QuestFrameCompleteQuestButton:HookScript("OnClick", function()
+	BlockQuestFrames(mainFrame.questTurnInDelay)
+end)
 
 function mainFrame.events:PLAYER_ENTERING_WORLD(...)
 	self:Hide()
