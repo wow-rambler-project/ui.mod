@@ -7,7 +7,9 @@ local AddonName = ...
 
 local mainFrame = CreateFrame("Frame", nil, UIParent)
 mainFrame.events = {}
-mainFrame:Hide()
+mainFrame.questTurnInDelay = 8
+mainFrame.questAcceptDelay = 5
+mainFrame.defaultChatTabText = " "
 
 SetCVar("showBattlefieldMinimap", "1")
 SetCVar("autoLootDefault", "1")
@@ -35,9 +37,7 @@ function mainFrame:SetupEvents()
 end
 
 function mainFrame:SetupSettings()
-	self.questTurnInDelay = 8
-	self.questAcceptDelay = 5
-	self.defaultChatTabText = " "
+
 end
 
 function mainFrame:SetupMinimap()
@@ -59,24 +59,26 @@ end
 function mainFrame:UpdateBattlefieldMap()
 	BattlefieldMapFrame.groupMembersDataProvider:SetUnitPinSize("player", 18)
 
-	-- This is ugly. I just don't get how this frame works.
+	BattlefieldMapTab:ClearAllPoints();
+	BattlefieldMapTab:SetPoint("BOTTOMRIGHT", -106, 160)
+	BattlefieldMapTab:SetUserPlaced(true);
+
 	local newHeight = 154
 	local newWidth = newHeight * BattlefieldMapFrame:GetWidth() / BattlefieldMapFrame:GetHeight() -- 231
 
-	BattlefieldMapFrame:SetSize(newWidth, newHeight);
-	BattlefieldMapTab:SetPoint("BOTTOMRIGHT", -106, 160)
-
 	BattlefieldMapOptions.opacity = 0
-	BattlefieldMapFrame:RefreshAlpha()
+	BattlefieldMapFrame:SetSize(newWidth, newHeight);
+	BattlefieldMapFrame:RefreshAlpha();
+	BattlefieldMapFrame:UpdateUnitsVisibility();
+
+	BattlefieldMapFrame.BorderFrame.CloseButton:Hide()
+	BattlefieldMapFrame.BorderFrame.CloseButtonBorder:Hide()
 end
 
 function mainFrame:SetupBattlefieldMap()
 	if not BattlefieldMapFrame then
 		return
 	end
-
-	BattlefieldMapFrame.BorderFrame.CloseButton:Hide()
-	BattlefieldMapFrame.BorderFrame.CloseButtonBorder:Hide()
 
 	self:UpdateBattlefieldMap()
 
@@ -176,6 +178,7 @@ QuestFrameAcceptButton:HookScript("OnClick", function() BlockQuestFrames(mainFra
 QuestFrameCompleteQuestButton:HookScript("OnClick", function() BlockQuestFrames(mainFrame.questTurnInDelay) end)
 
 function mainFrame.events:PLAYER_ENTERING_WORLD(...)
+	self:Hide()
 	self:SetupMinimap()
 	self:SetupBattlefieldMap()
 end
@@ -278,5 +281,4 @@ function mainFrame.events:UPDATE_CHAT_WINDOWS(...)
 	end
 end
 
-mainFrame:SetupSettings()
 mainFrame:SetupEvents()
