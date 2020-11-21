@@ -131,42 +131,34 @@ end
 
 local lockedWorldMap = false
 
-local function SetWorldMapPosition()
-	WorldMapFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 16, -46)
-end
-
 WorldMapFrame:HookScript("OnHide", function()
 	if lockedWorldMap then
 		OpenWorldMap()
-		SetWorldMapPosition()
 	end
 end)
 
-WorldMapFrame:HookScript("OnShow", function()
-	SetWorldMapPosition()
-end)
+local WorldMapSetPointHook = WorldMapFrame.SetPoint
 
-hooksecurefunc("OpenWorldMap", function(mapID)
-	SetWorldMapPosition()	
-end)
+WorldMapFrame.SetPoint = function(this, point, relativeFrame, relativePoint, ofsx, ofsy)
+	WorldMapSetPointHook(this, "TOPLEFT", UIParent, "TOPLEFT", 16, -46)
+end
 
-hooksecurefunc("ToggleWorldMap", function(mapID)
-	SetWorldMapPosition()
-end)
+local QuestFrameSetPointHook = QuestFrame.SetPoint
 
-QuestFrame:HookScript("OnShow", function()
-	QuestFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 16, -84)
-end)
+QuestFrame.SetPoint = function(this, point, relativeFrame, relativePoint, ofsx, ofsy)
+	QuestFrameSetPointHook(this, "TOPLEFT", UIParent, "TOPLEFT", 16, -84)
+end
 
-GossipFrame:HookScript("OnShow", function()
-	GossipFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 16, -84)	
-end)
+local GossipFrameSetPointHook = GossipFrame.SetPoint
+
+GossipFrame.SetPoint = function(this, point, relativeFrame, relativePoint, ofsx, ofsy)
+	GossipFrameSetPointHook(this, "TOPLEFT", UIParent, "TOPLEFT", 16, -84)
+end
 
 local function ShowMap(seconds)
 	lockedWorldMap = true
 
 	OpenWorldMap()
-	SetWorldMapPosition()
 
 	C_Timer.After(seconds, function()
 		lockedWorldMap = false
