@@ -131,18 +131,31 @@ end
 
 local lockedWorldMap = false
 
+local function SetWorldMapPosition()
+	WorldMapFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 16, -46)
+end
+
 WorldMapFrame:HookScript("OnHide", function()
 	if lockedWorldMap then
-		WorldMapFrame:OnEvent("WORLD_MAP_OPEN")
+		OpenWorldMap()
+		SetWorldMapPosition()
 	end
 end)
 
 WorldMapFrame:HookScript("OnShow", function()
-	WorldMapFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 16, -46)	
+	SetWorldMapPosition()
+end)
+
+hooksecurefunc("OpenWorldMap", function(mapID)
+	SetWorldMapPosition()	
+end)
+
+hooksecurefunc("ToggleWorldMap", function(mapID)
+	SetWorldMapPosition()
 end)
 
 QuestFrame:HookScript("OnShow", function()
-	QuestFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 16, -84)	
+	QuestFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 16, -84)
 end)
 
 GossipFrame:HookScript("OnShow", function()
@@ -151,7 +164,9 @@ end)
 
 local function ShowMap(seconds)
 	lockedWorldMap = true
-	WorldMapFrame:OnEvent("WORLD_MAP_OPEN")
+
+	OpenWorldMap()
+	SetWorldMapPosition()
 
 	C_Timer.After(seconds, function()
 		lockedWorldMap = false
