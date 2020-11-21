@@ -97,13 +97,13 @@ function mainFrame:SetupBattlefieldMap()
 
 	-- Move the tooltip a little to the top so it won't collide with the battlefield map.
 	hooksecurefunc("GameTooltip_SetDefaultAnchor", function(tooltip, parent)
-		tooltip:SetOwner(parent, "ANCHOR_NONE");
+		tooltip:SetOwner(parent, "ANCHOR_NONE")
 		tooltip:SetPoint("BOTTOMRIGHT", TooltipAnchor, "BOTTOMRIGHT", 0, 175)
 	end)
 end
 
 function mainFrame:OnQuest()
-	if not QuestNpcNameFrame then
+	if not QuestFrame:IsVisible() then
 		return
 	end
 
@@ -135,6 +135,18 @@ WorldMapFrame:HookScript("OnHide", function()
 	if lockedWorldMap then
 		WorldMapFrame:OnEvent("WORLD_MAP_OPEN")
 	end
+end)
+
+WorldMapFrame:HookScript("OnShow", function()
+	WorldMapFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 16, -46)	
+end)
+
+QuestFrame:HookScript("OnShow", function()
+	QuestFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 16, -84)	
+end)
+
+GossipFrame:HookScript("OnShow", function()
+	GossipFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 16, -84)	
 end)
 
 local function ShowMap(seconds)
@@ -254,7 +266,7 @@ function mainFrame.events:UPDATE_FLOATING_CHAT_WINDOWS(...)
 	local parent = _G["ChatFrame1"]
 	parent:ClearAllPoints()
 	parent:SetPoint('BOTTOMLEFT', UIParent, 0, 0)
-	parent:SetSize(325, 156)
+	parent:SetSize(329, 156)
 end
 
 function mainFrame.events:UPDATE_CHAT_WINDOWS(...)
