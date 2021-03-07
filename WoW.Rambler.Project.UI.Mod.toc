@@ -1,6 +1,6 @@
-## Interface: 90001
+## Interface: 90002
 ## Title: WoW.Rambler.Project.UI.Mod
 ## Notes: WoW Rambler Project UI Mod Addon
-## Version: 1.0
+## Version: 1.1
 
 main.lua
