@@ -11,9 +11,6 @@ mainFrame.questTurnInDelay = 8
 mainFrame.questAcceptDelay = 5
 mainFrame.defaultChatTabText = " "
 
-SetCVar("showBattlefieldMinimap", "1")
-SetCVar("autoLootDefault", "1")
-
 -- Tutorials... Meh.
 for i = 1, NUM_LE_FRAME_TUTORIALS do
 	C_CVar.SetCVarBitfield("closedInfoFrames", i, true)
@@ -50,13 +47,16 @@ function mainFrame:SetupMinimap()
 	MiniMapMailFrame:SetParent(mainFrame)
 	MinimapBorderTop:SetParent(mainFrame)
 	MinimapZoneTextButton:SetParent(mainFrame)
+	GarrisonLandingPageMinimapButton:SetParent(mainFrame)
 end
 
 function mainFrame:UpdateBattlefieldMap()
 	BattlefieldMapFrame.groupMembersDataProvider:SetUnitPinSize("player", 18)
 
 	BattlefieldMapTab:ClearAllPoints();
-	BattlefieldMapTab:SetPoint("BOTTOMRIGHT", -106, 160)
+	--BattlefieldMapTab:SetPoint("BOTTOMRIGHT", -106, 160)
+--	BattlefieldMapTab:SetPoint("BOTTOMRIGHT", -147, 160)
+	BattlefieldMapTab:SetPoint("BOTTOMRIGHT", -149, 160)
 	BattlefieldMapTab:SetUserPlaced(true);
 
 	local newHeight = 154
@@ -86,12 +86,13 @@ function mainFrame:SetupBattlefieldMap()
 		BattlefieldMapFrame.backgroundFix:SetBackdrop({
 			bgFile = nil,
 			edgeFile = "Interface/BUTTONS/WHITE8X8",
-			edgeSize = 4,
+			edgeSize = 5,
 			insets = { left = 1, right = 1, top = 1, bottom = 1 },
 		})
 
 		BattlefieldMapFrame.backgroundFix:SetPoint("BOTTOMRIGHT", 0, 0)
-		BattlefieldMapFrame.backgroundFix:SetSize(BattlefieldMapFrame:GetWidth() + 3, BattlefieldMapFrame:GetHeight() + 4)
+		-- BattlefieldMapFrame.backgroundFix:SetSize(BattlefieldMapFrame:GetWidth() + 3, BattlefieldMapFrame:GetHeight() + 4)
+		BattlefieldMapFrame.backgroundFix:SetSize(BattlefieldMapFrame:GetWidth() + 4, BattlefieldMapFrame:GetHeight() + 5)
 		BattlefieldMapFrame.backgroundFix:SetBackdropBorderColor(0, 0, 0, 1)
 	end
 
@@ -123,7 +124,8 @@ function mainFrame:OnQuest()
 	local questId = GetQuestID()
 
 	if questId ~= nil and questId ~= 0 then
-		questIdText:SetFormattedText("Questa è la missione numero %d", questId)
+		-- questIdText:SetFormattedText("Questa è la missione numero %d", questId)
+		questIdText:SetFormattedText("This is quest number %d", questId)
 	else
 		questIdText:SetText("")
 	end
@@ -191,11 +193,47 @@ QuestFrameAcceptButton:HookScript("OnClick", function()
 	BlockQuestFrames(mainFrame.questAcceptDelay)
 end)
 
+QuestFrameAcceptButton:HookScript("OnShow", function()
+	QuestFrameAcceptButton:Disable()
+
+	C_Timer.After(5, function()
+		QuestFrameAcceptButton:Enable()
+	end)
+end)
+
 QuestFrameCompleteQuestButton:HookScript("OnClick", function()
 	BlockQuestFrames(mainFrame.questTurnInDelay)
 end)
 
+QuestFrameCompleteQuestButton:HookScript("OnShow", function()
+	QuestFrameCompleteQuestButton:Disable()
+
+	C_Timer.After(5, function()
+		QuestFrameCompleteQuestButton:Enable()
+	end)
+end)
+
+QuestFrameCompleteButton:HookScript("OnShow", function()
+	local enableHook = QuestFrameCompleteButton.Enable
+
+	QuestFrameCompleteButton.Enable = Dummy
+	
+	QuestFrameCompleteButton:Disable()
+
+	C_Timer.After(5, function()
+		QuestFrameCompleteButton.Enable = enableHook
+		QuestFrameCompleteButton:Enable()
+	end)
+end)
+
 function mainFrame.events:PLAYER_ENTERING_WORLD(...)
+	SetCVar("showBattlefieldMinimap", "1")
+	SetCVar("autoLootDefault", "1")
+	-- SetCVar("cameraYawMoveSpeed", "30")
+	-- SetCVar("cameraPitchMovespeed", "17")
+	SetCVar("cameraYawMoveSpeed", "23")
+	SetCVar("cameraPitchMovespeed", "13")
+
 	self:Hide()
 	self:SetupMinimap()
 	self:SetupBattlefieldMap()
@@ -272,8 +310,9 @@ end
 function mainFrame.events:UPDATE_FLOATING_CHAT_WINDOWS(...)
 	local parent = _G["ChatFrame1"]
 	parent:ClearAllPoints()
-	parent:SetPoint('BOTTOMLEFT', UIParent, 0, 0)
-	parent:SetSize(329, 156)
+	parent:SetPoint('BOTTOMLEFT', UIParent, 5, 6)
+	-- parent:SetSize(329, 156)
+	parent:SetSize(375, 151)
 end
 
 function mainFrame.events:UPDATE_CHAT_WINDOWS(...)
@@ -297,6 +336,12 @@ function mainFrame.events:UPDATE_CHAT_WINDOWS(...)
 	if ChatFrame3Tab:IsVisible() then
 		FCF_Tab_OnClick(ChatFrame3Tab)
 	end
+
+	local parent = _G["ChatFrame1"]
+	parent:ClearAllPoints()
+	parent:SetPoint('BOTTOMLEFT', UIParent, 5, 6)
+	-- parent:SetSize(329, 156)
+	parent:SetSize(375, 151)
 end
 
 mainFrame:SetupEvents()
